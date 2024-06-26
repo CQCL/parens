@@ -1,0 +1,21 @@
+[package]
+name = "parenthesis"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+parenthesis-macros = { path = "../parenthesis-macros", optional = true }
+logos = "0.14.0"
+pretty = "0.12.3"
+ordered-float = { version = "4.2.0", features = ["proptest"] }
+proptest = "1.5.0"
+thiserror = "1.0.61"
+smol_str = "0.2.2"
+
+[features]
+default = ["macros"]
+macros = ["parenthesis-macros"]
+
+[dev-dependencies]
+rstest = "0.21.0"
