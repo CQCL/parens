@@ -1,8 +1,0 @@
-# Seeds for failure cases proptest has generated in the past. It is
-# automatically read and these particular cases re-run before any
-# novel cases are generated.
-#
-# It is recommended to check this file in to source control so that
-# everyone who runs the test benefits from these saved cases.
-cc 1b1110d25313af8541030eafd1a84557e456808df808f9831b441556c3db5fbc # shrinks to values = [List([List([List([String("\\")])])])], width = 0
-cc d905372bc5fb620ef2f455949dcd7a11c211dbdc78259753a7cd387484f60ccc # shrinks to values = [List([List([Symbol(Symbol("+"))])])], width = 0

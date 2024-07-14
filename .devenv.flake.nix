@@ -1,7 +1,7 @@
 {
   inputs =
     let
-      version = "1.0.5";
+      version = "1.0.7";
 system = "aarch64-darwin";
 devenv_root = "/Users/heidemann/Documents/parenthesis";
 devenv_dotfile = ./.devenv;
@@ -9,6 +9,7 @@ devenv_dotfile_string = ".devenv";
 container_name = null;
 devenv_tmpdir = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/";
 devenv_runtime = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/devenv-7173145";
+devenv_istesting = false;
 
         in {
         pre-commit-hooks.url = "github:cachix/pre-commit-hooks.nix";
@@ -21,7 +22,7 @@ devenv_runtime = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/devenv-717314
 
       outputs = { nixpkgs, ... }@inputs:
         let
-          version = "1.0.5";
+          version = "1.0.7";
 system = "aarch64-darwin";
 devenv_root = "/Users/heidemann/Documents/parenthesis";
 devenv_dotfile = ./.devenv;
@@ -29,6 +30,7 @@ devenv_dotfile_string = ".devenv";
 container_name = null;
 devenv_tmpdir = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/";
 devenv_runtime = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/devenv-7173145";
+devenv_istesting = false;
 
             devenv =
             if builtins.pathExists (devenv_dotfile + "/devenv.json")
@@ -86,6 +88,9 @@ devenv_runtime = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/devenv-717314
               (pkgs.lib.optionalAttrs (inputs.devenv.isTmpDir or false) {
                 devenv.tmpdir = devenv_tmpdir;
                 devenv.runtime = devenv_runtime;
+              })
+              (pkgs.lib.optionalAttrs (inputs.devenv.hasIsTesting or false) {
+                devenv.isTesting = devenv_istesting;
               })
               (pkgs.lib.optionalAttrs (container_name != null) {
                 container.isBuilding = pkgs.lib.mkForce true;

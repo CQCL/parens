@@ -296,26 +296,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "parenthesis"
+name = "parens"
 version = "0.1.0"
 dependencies = [
  "logos",
  "ordered-float",
- "parenthesis-macros",
  "pretty",
  "proptest",
  "rstest",
  "smol_str",
  "thiserror",
-]
-
-[[package]]
-name = "parenthesis-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
