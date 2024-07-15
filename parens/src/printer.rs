@@ -10,20 +10,34 @@ pub use pretty::to_string_pretty;
 pub trait Printer: Sized {
     type Error;
 
+    /// Print an atom.
     fn atom(&mut self, atom: &str) -> Result<(), Self::Error>;
 
+    /// Print a list given a function that prints the contents.
     fn list<F>(&mut self, f: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
 
+    /// Print a seq given a function that prints the contents.
     fn seq<F>(&mut self, f: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
 
+    /// Print a map given a function that prints the contents.
     fn map<F>(&mut self, f: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
 
+    /// Print a group given a function that prints the contents.
+    ///
+    /// Groups are not explicitly delimited in the output, but represent items that
+    /// semantically belong together. The printer can use this as a hint
+    /// to guide the layout.
+    fn group<F>(&mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+
+    /// Print a printable value.
     fn print(&mut self, value: impl Print) -> Result<(), Self::Error> {
         value.print(self)
     }
@@ -168,6 +182,13 @@ impl Printer for SimplePrinter {
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
     {
         self.print_delimited('{', '}', f)
+    }
+
+    fn group<F>(&mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+    {
+        f(self)
     }
 }
 
