@@ -5,17 +5,14 @@ macro_rules! make_keyword {
         #[allow(non_camel_case_types)]
         #[allow(dead_code)]
         #[derive(Debug, Clone)]
-        pub struct $name($crate::parser::Span);
+        pub struct $name;
 
         impl $crate::parser::Parse for $name {
             fn parse(parser: &mut $crate::parser::Parser<'_>) -> $crate::parser::Result<Self> {
-                let atom = parser.atom()?;
-
-                if atom.as_str() != $atom {
-                    return Err(parser.error(format!("expected {}", $atom)));
-                }
-
-                Ok(Self(parser.span()))
+                parser.step(|cursor| match cursor.atom() {
+                    Some((atom, rest)) if atom.as_str() == $atom => Ok((Self, rest)),
+                    _ => Err(cursor.error(format!("expected {}", $atom)))
+                })
             }
         }
 

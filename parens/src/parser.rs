@@ -1,5 +1,6 @@
 //! Parse values from s-expressions.
 use crate::lexer::lex;
+use delegate::delegate;
 use smol_str::SmolStr;
 use std::fmt::Display;
 use std::ops::Range;
@@ -76,7 +77,7 @@ impl<'a> Parser<'a> {
         F: FnOnce(&mut Self) -> Result<T>,
     {
         self.step(|cursor| {
-            let (inner, after) = cursor.list().ok_or_else(|| cursor.error("expected atom"))?;
+            let (inner, after) = cursor.list().ok_or_else(|| cursor.error("expected list"))?;
             let mut inner = Parser::new(inner);
             let result = f(&mut inner)?;
 
@@ -86,10 +87,6 @@ impl<'a> Parser<'a> {
 
             Ok((result, after))
         })
-    }
-
-    pub fn error(&self, message: impl Display) -> ParseError {
-        ParseError::new(message, self.span())
     }
 
     #[inline]
@@ -102,23 +99,18 @@ impl<'a> Parser<'a> {
         Ok(result)
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.cursor.is_empty()
-    }
-
     #[inline]
     pub fn cursor(&self) -> Cursor<'a> {
         self.cursor
     }
 
-    #[inline]
-    pub fn span(&self) -> Span {
-        self.cursor.span()
-    }
-
-    #[inline]
-    pub fn parent_span(&self) -> Span {
-        self.cursor.parent_span()
+    delegate! {
+        to self.cursor {
+            pub fn is_empty(&self) -> bool;
+            pub fn span(&self) -> Span;
+            pub fn parent_span(&self) -> Span;
+            pub fn error(&self, message: impl Display) -> ParseError;
+        }
     }
 }
 
@@ -333,6 +325,10 @@ impl ParseError {
             message: message.to_string(),
             span,
         }
+    }
+
+    pub fn span(&self) -> Span {
+        self.span.clone()
     }
 }
 
