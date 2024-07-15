@@ -59,21 +59,21 @@ impl<T: Print + Sized> Print for &T {
 impl<T: Print> Print for Box<T> {
     #[inline]
     fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
-        printer.print(&*self)
+        printer.print(self.as_ref())
     }
 }
 
 impl<T: Print> Print for Rc<T> {
     #[inline]
     fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
-        printer.print(&*self)
+        printer.print(self.as_ref())
     }
 }
 
 impl<T: Print> Print for Arc<T> {
     #[inline]
     fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
-        printer.print(&*self)
+        printer.print(self.as_ref())
     }
 }
 

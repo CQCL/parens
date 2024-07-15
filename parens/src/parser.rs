@@ -4,6 +4,8 @@ use delegate::delegate;
 use smol_str::SmolStr;
 use std::fmt::Display;
 use std::ops::Range;
+use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Token {
@@ -295,7 +297,7 @@ impl<'a> Cursor<'a> {
     #[inline]
     pub fn span(&self) -> Span {
         if self.is_empty() {
-            let offset = self.parent_span().end - 1;
+            let offset = self.parent_span().end;
             offset..offset
         } else {
             self.buffer.spans[self.index].clone()
@@ -323,6 +325,24 @@ impl<V: Parse> Parse for Vec<V> {
             values.push(parser.parse()?);
         }
         Ok(values)
+    }
+}
+
+impl<V: Parse> Parse for Box<V> {
+    fn parse(parser: &mut Parser<'_>) -> Result<Self> {
+        Ok(Box::new(parser.parse()?))
+    }
+}
+
+impl<V: Parse> Parse for Rc<V> {
+    fn parse(parser: &mut Parser<'_>) -> Result<Self> {
+        Ok(Rc::new(parser.parse()?))
+    }
+}
+
+impl<V: Parse> Parse for Arc<V> {
+    fn parse(parser: &mut Parser<'_>) -> Result<Self> {
+        Ok(Arc::new(parser.parse()?))
     }
 }
 

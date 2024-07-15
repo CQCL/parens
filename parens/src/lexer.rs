@@ -6,7 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Logos)]
-#[logos(skip r"([ \t\n\f]+|;[^\n]\n)+")]
+#[logos(skip r"([ \t\n\f]+|;[^\n]*\n)")]
 enum LexerToken {
     #[token("(")]
     OpenList,
