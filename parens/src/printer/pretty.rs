@@ -3,18 +3,20 @@ use std::convert::Infallible;
 use crate::escape::escape_string;
 
 use super::{Print, Printer};
-use pretty::BoxDoc;
+use pretty::DocAllocator as _;
 
-struct PrettyPrinter {
-    items: Vec<BoxDoc<'static>>,
+struct PrettyPrinter<'a> {
+    arena: &'a pretty::Arena<'a>,
+    items: Vec<pretty::DocBuilder<'a, pretty::Arena<'a>>>,
 }
 
-impl Printer for PrettyPrinter {
+impl<'a> Printer for PrettyPrinter<'a> {
     type Error = Infallible;
 
     fn atom(&mut self, atom: &str) -> Result<(), Self::Error> {
-        self.items
-            .push(BoxDoc::text(escape_string(&atom.to_string())));
+        let escaped = escape_string(&atom.to_string());
+        let doc = self.arena.text(escaped);
+        self.items.push(doc);
         Ok(())
     }
 
@@ -25,9 +27,20 @@ impl Printer for PrettyPrinter {
         let position = self.items.len();
         f(self)?;
         let items = self.items.drain(position..);
-        let items = BoxDoc::intersperse(items, BoxDoc::line()).nest(2).group();
-        self.items
-            .push(BoxDoc::text("(").append(items).append(BoxDoc::text(")")));
+
+        let docs = self
+            .arena
+            .intersperse(items, self.arena.line())
+            .nest(2)
+            .group();
+
+        self.items.push(
+            self.arena
+                .text("(")
+                .append(docs)
+                .append(self.arena.text(")")),
+        );
+
         Ok(())
     }
 
@@ -38,9 +51,20 @@ impl Printer for PrettyPrinter {
         let position = self.items.len();
         f(self)?;
         let items = self.items.drain(position..);
-        let items = BoxDoc::intersperse(items, BoxDoc::line()).nest(1).group();
-        self.items
-            .push(BoxDoc::text("[").append(items).append(BoxDoc::text("]")));
+
+        let docs = self
+            .arena
+            .intersperse(items, self.arena.line())
+            .nest(1)
+            .group();
+
+        self.items.push(
+            self.arena
+                .text("[")
+                .append(docs)
+                .append(self.arena.text("]")),
+        );
+
         Ok(())
     }
 
@@ -51,9 +75,20 @@ impl Printer for PrettyPrinter {
         let position = self.items.len();
         f(self)?;
         let items = self.items.drain(position..);
-        let items = BoxDoc::intersperse(items, BoxDoc::line()).nest(1).group();
-        self.items
-            .push(BoxDoc::text("{").append(items).append(BoxDoc::text("}")));
+
+        let docs = self
+            .arena
+            .intersperse(items, self.arena.line())
+            .nest(1)
+            .group();
+
+        self.items.push(
+            self.arena
+                .text("{")
+                .append(docs)
+                .append(self.arena.text("}")),
+        );
+
         Ok(())
     }
 
@@ -64,19 +99,29 @@ impl Printer for PrettyPrinter {
         let position = self.items.len();
         f(self)?;
         let items = self.items.drain(position..);
-        let items = BoxDoc::intersperse(items, BoxDoc::line()).group();
-        self.items.push(items);
+
+        let docs = self.arena.intersperse(items, self.arena.line()).group();
+        self.items.push(docs);
         Ok(())
     }
 }
 
+/// Pretty print a `T` into an s-expression string.
 pub fn to_string_pretty<T>(value: T, width: usize) -> String
 where
     T: Print,
 {
-    let mut printer = PrettyPrinter { items: vec![] };
+    let arena = pretty::Arena::new();
+    let mut printer = PrettyPrinter {
+        items: vec![],
+        arena: &arena,
+    };
+
     let _ = value.print(&mut printer);
-    let doc = BoxDoc::intersperse(printer.items, BoxDoc::line());
+
+    let double_line = arena.line().append(arena.line());
+    let doc = arena.intersperse(printer.items, double_line);
+
     let mut string = String::new();
     let _ = doc.render_fmt(width, &mut string);
     string

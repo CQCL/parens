@@ -7,6 +7,7 @@ use std::sync::Arc;
 mod pretty;
 pub use pretty::to_string_pretty;
 
+/// Trait for types that can print s-expressions.
 pub trait Printer: Sized {
     type Error;
 
