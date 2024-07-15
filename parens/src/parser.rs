@@ -8,6 +8,8 @@ use std::ops::Range;
 #[derive(Debug, Clone)]
 pub(crate) enum Token {
     List(usize),
+    Seq(usize),
+    Map(usize),
     Atom(SmolStr),
 }
 
@@ -89,6 +91,40 @@ impl<'a> Parser<'a> {
         })
     }
 
+    pub fn seq<T, F>(&mut self, f: F) -> Result<T>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.step(|cursor| {
+            let (inner, after) = cursor.seq().ok_or_else(|| cursor.error("expected seq"))?;
+            let mut inner = Parser::new(inner);
+            let result = f(&mut inner)?;
+
+            if !inner.is_empty() {
+                return Err(inner.error("expected end of seq"));
+            }
+
+            Ok((result, after))
+        })
+    }
+
+    pub fn map<T, F>(&mut self, f: F) -> Result<T>
+    where
+        F: FnOnce(&mut Self) -> Result<T>,
+    {
+        self.step(|cursor| {
+            let (inner, after) = cursor.map().ok_or_else(|| cursor.error("expected map"))?;
+            let mut inner = Parser::new(inner);
+            let result = f(&mut inner)?;
+
+            if !inner.is_empty() {
+                return Err(inner.error("expected end of map"));
+            }
+
+            Ok((result, after))
+        })
+    }
+
     #[inline]
     pub fn step<T, F>(&mut self, f: F) -> Result<T>
     where
@@ -149,6 +185,8 @@ impl<'a> Cursor<'a> {
     pub fn advance(self) -> Option<Self> {
         let size = match self.get()? {
             Token::List(size) => size + 1,
+            Token::Seq(size) => size + 1,
+            Token::Map(size) => size + 1,
             Token::Atom(_) => 1,
         };
         Some(Cursor {
@@ -175,26 +213,42 @@ impl<'a> Cursor<'a> {
     }
 
     pub fn list(self) -> Option<(Self, Self)> {
-        let size = match self.get()? {
-            Token::List(size) => *size,
-            _ => return None,
-        };
+        match self.get()? {
+            Token::List(size) => Some(self.split(1, *size)),
+            _ => None,
+        }
+    }
 
-        let inner = Cursor {
+    pub fn seq(self) -> Option<(Self, Self)> {
+        match self.get()? {
+            Token::Seq(size) => Some(self.split(1, *size)),
+            _ => None,
+        }
+    }
+
+    pub fn map(self) -> Option<(Self, Self)> {
+        match self.get()? {
+            Token::Map(size) => Some(self.split(1, *size)),
+            _ => None,
+        }
+    }
+
+    fn split(self, skip: usize, size: usize) -> (Self, Self) {
+        let left = Cursor {
             buffer: self.buffer,
-            index: self.index + 1,
-            end_index: self.index + size + 1,
+            index: self.index + skip,
+            end_index: self.index + size + skip,
             parent: Some(self.index),
         };
 
-        let after = Cursor {
+        let right = Cursor {
             buffer: self.buffer,
-            index: self.index + 1 + size,
+            index: self.index + skip + size,
             end_index: self.end_index,
             parent: self.parent,
         };
 
-        Some((inner, after))
+        (left, right)
     }
 
     pub fn peek_atom(self, f: impl FnOnce(&SmolStr) -> bool) -> bool {
@@ -206,6 +260,20 @@ impl<'a> Cursor<'a> {
 
     pub fn peek_list(self, f: impl FnOnce(Self) -> bool) -> bool {
         match self.list() {
+            Some((inner, _)) => f(inner),
+            None => false,
+        }
+    }
+
+    pub fn peek_seq(self, f: impl FnOnce(Self) -> bool) -> bool {
+        match self.seq() {
+            Some((inner, _)) => f(inner),
+            None => false,
+        }
+    }
+
+    pub fn peek_map(self, f: impl FnOnce(Self) -> bool) -> bool {
+        match self.map() {
             Some((inner, _)) => f(inner),
             None => false,
         }

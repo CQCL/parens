@@ -9,9 +9,15 @@
 //! - **Lists** are sequences of values, delimited on the outside by `(` and `)`
 //!   and separated by whitespace.
 //!
+//! - **Seqs** are sequences of values, delimited on the outside by `[` and `]`
+//!   and separated by whitespace.
+//!
+//! - **Maps** are sequences of values, delimited on the outside by `{` and `}`
+//!   and separated by whitespace.
+//!
 //! - **Atoms** are strings, either appearing verbatim without delimiters or
 //!   enclosed within double quotes. The double quotes are optional whenever
-//!   the string does not include any of the characters `(`, `)`, `"`, `\n`,
+//!   the string does not include any of the characters `(`, `)`, `[`, `]`, `{`, `}`, `"`, `\n`,
 //!   `\r`, `\t` or the space ` `. Within quoted strings, the following escaping rules apply:
 //!
 //!    - `\"` and `\\` are used to escape `"` and `\`.
@@ -30,3 +36,32 @@ pub mod util;
 
 pub use parser::from_str;
 pub use printer::{to_string, to_string_pretty};
+
+// /// Type of delimiters.
+// #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// pub enum Delimiter {
+//     /// `(` and `)`.
+//     List,
+//     /// `[` and `]`.
+//     Seq,
+//     /// `{` and `}`.
+//     Map,
+// }
+
+// impl Delimiter {
+//     pub fn open(self) -> char {
+//         match self {
+//             Delimiter::List => '(',
+//             Delimiter::Seq => '[',
+//             Delimiter::Map => '{',
+//         }
+//     }
+
+//     pub fn close(self) -> char {
+//         match self {
+//             Delimiter::List => ')',
+//             Delimiter::Seq => ']',
+//             Delimiter::Map => '}',
+//         }
+//     }
+// }

@@ -7,19 +7,19 @@ use smol_str::SmolStr;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
     List(Vec<Value>),
+    Seq(Vec<Value>),
+    Map(Vec<Value>),
     Atom(SmolStr),
 }
 
 impl Parse for Value {
     fn parse(parser: &mut Parser<'_>) -> crate::parser::Result<Self> {
         if parser.cursor().peek_list(|_| true) {
-            parser.list(|parser| {
-                let mut values = Vec::new();
-                while !parser.is_empty() {
-                    values.push(parser.parse()?);
-                }
-                Ok(Value::List(values))
-            })
+            parser.list(|parser| Ok(Value::List(parser.parse()?)))
+        } else if parser.cursor().peek_seq(|_| true) {
+            parser.seq(|parser| Ok(Value::Seq(parser.parse()?)))
+        } else if parser.cursor().peek_map(|_| true) {
+            parser.map(|parser| Ok(Value::Map(parser.parse()?)))
         } else {
             Ok(Value::Atom(parser.parse()?))
         }
@@ -29,12 +29,9 @@ impl Parse for Value {
 impl Print for Value {
     fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
         match self {
-            Value::List(list) => printer.list(|printer| {
-                for item in list {
-                    printer.print(item)?;
-                }
-                Ok(())
-            }),
+            Value::List(items) => printer.list(|printer| printer.print(items)),
+            Value::Seq(items) => printer.seq(|printer| printer.print(items)),
+            Value::Map(items) => printer.map(|printer| printer.print(items)),
             Value::Atom(atom) => printer.atom(atom),
         }
     }
@@ -61,7 +58,11 @@ impl Arbitrary for Value {
 
         let leaf = any::<String>().prop_map(Value::from);
         leaf.prop_recursive(8, 256, 10, |inner| {
-            proptest::collection::vec(inner, 0..10).prop_map(Value::List)
+            proptest::prop_oneof![
+                proptest::collection::vec(inner.clone(), 0..10).prop_map(Value::List),
+                proptest::collection::vec(inner.clone(), 0..10).prop_map(Value::Map),
+                proptest::collection::vec(inner, 0..10).prop_map(Value::Seq)
+            ]
         })
         .boxed()
     }

@@ -30,6 +30,32 @@ impl Printer for PrettyPrinter {
             .push(BoxDoc::text("(").append(items).append(BoxDoc::text(")")));
         Ok(())
     }
+
+    fn seq<F>(&mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+    {
+        let position = self.items.len();
+        f(self)?;
+        let items = self.items.drain(position..);
+        let items = BoxDoc::intersperse(items, BoxDoc::line()).nest(1).group();
+        self.items
+            .push(BoxDoc::text("[").append(items).append(BoxDoc::text("]")));
+        Ok(())
+    }
+
+    fn map<F>(&mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+    {
+        let position = self.items.len();
+        f(self)?;
+        let items = self.items.drain(position..);
+        let items = BoxDoc::intersperse(items, BoxDoc::line()).nest(1).group();
+        self.items
+            .push(BoxDoc::text("{").append(items).append(BoxDoc::text("}")));
+        Ok(())
+    }
 }
 
 pub fn to_string_pretty<T>(value: T, width: usize) -> String

@@ -11,7 +11,16 @@ pub trait Printer: Sized {
     type Error;
 
     fn atom(&mut self, atom: &str) -> Result<(), Self::Error>;
+
     fn list<F>(&mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+
+    fn seq<F>(&mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>;
+
+    fn map<F>(&mut self, f: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
 
@@ -103,6 +112,24 @@ impl SimplePrinter {
             string: String::new(),
         }
     }
+
+    #[inline]
+    fn print_delimited<F>(&mut self, open: char, close: char, f: F) -> Result<(), Infallible>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Infallible>,
+    {
+        if self.needs_whitespace {
+            self.string.push(' ');
+        }
+
+        self.string.push(open);
+        self.needs_whitespace = false;
+        f(self)?;
+        self.string.push(close);
+        self.needs_whitespace = true;
+
+        Ok(())
+    }
 }
 
 impl Printer for SimplePrinter {
@@ -119,21 +146,28 @@ impl Printer for SimplePrinter {
         Ok(())
     }
 
+    #[inline]
     fn list<F>(&mut self, f: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
     {
-        if self.needs_whitespace {
-            self.string.push(' ');
-        }
+        self.print_delimited('(', ')', f)
+    }
 
-        self.string.push('(');
-        self.needs_whitespace = false;
-        f(self)?;
-        self.string.push(')');
-        self.needs_whitespace = true;
+    #[inline]
+    fn seq<F>(&mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+    {
+        self.print_delimited('[', ']', f)
+    }
 
-        Ok(())
+    #[inline]
+    fn map<F>(&mut self, f: F) -> Result<(), Self::Error>
+    where
+        F: FnOnce(&mut Self) -> Result<(), Self::Error>,
+    {
+        self.print_delimited('{', '}', f)
     }
 }
 
