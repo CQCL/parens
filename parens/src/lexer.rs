@@ -6,8 +6,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, PartialEq, Logos)]
-#[logos(skip r"([ \t\n\f]+|;[^\n]*\n)")]
-enum LexerToken {
+pub(crate) enum LexerToken {
     #[token("(")]
     OpenList,
     #[token("[")]
@@ -20,10 +19,17 @@ enum LexerToken {
     CloseSeq,
     #[token("}")]
     CloseMap,
-    #[regex(r#"[^ \t\n\f\(\)\[\]\{\}"\\;]+"#)]
-    BareAtom,
-    #[regex(r#""([^"\\]|\\["\\tnr]|u\{[a-fA-F0-9]+\})*""#)]
-    EscapedAtom,
+    #[regex(r#"[^ +\-0-9\t\n\f\(\)\[\]\{\}"\|\\;][^ \t\n\f\(\)\[\]\{\}"\|\\;]*"#)]
+    #[regex(r#"[+\-][^ 0-9\t\n\f\(\)\[\]\{\}"\|\\;][^ \t\n\f\(\)\[\]\{\}"\|\\;]*"#)]
+    BareSymbol,
+    #[regex(r#"\|([^|\\]|\\[|\\tnr]|u\{[a-fA-F0-9]+\})*\|"#)]
+    EscapedSymbol,
+    #[regex(r#""([^"\\]|\\[\\tnr"]|u\{[a-fA-F0-9]+\})*""#)]
+    String,
+    #[regex(r#"[+-]?([0-9]+)"#, |lex| lex.slice().parse().ok())]
+    Int(i64),
+    #[regex(r"([ \t\n\f]+|;[^\n]*\n)")]
+    WhiteSpace,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -96,16 +102,27 @@ pub fn lex<'a>(str: &'a str) -> Result<ParseBuffer<'a>, LexError> {
                 tokens[pos] = Token::Map(tokens.len() - pos - 1);
                 spans[pos].end = span.end;
             }
-            LexerToken::BareAtom => {
-                tokens.push(Token::Atom(lexer.slice().into()));
+            LexerToken::BareSymbol => {
+                tokens.push(Token::Symbol(lexer.slice().into()));
                 spans.push(span);
             }
-            LexerToken::EscapedAtom => {
+            LexerToken::EscapedSymbol => {
                 let inner = lexer.slice()[1..lexer.slice().len() - 1].into();
                 let unescaped = unescape(inner).ok_or(LexError::Syntax(span.clone()))?;
-                tokens.push(Token::Atom(unescaped.into()));
+                tokens.push(Token::Symbol(unescaped.into()));
                 spans.push(span);
             }
+            LexerToken::Int(int) => {
+                tokens.push(Token::Int(int));
+                spans.push(span);
+            }
+            LexerToken::String => {
+                let inner = lexer.slice()[1..lexer.slice().len() - 1].into();
+                let unescaped = unescape(inner).ok_or(LexError::Syntax(span.clone()))?;
+                tokens.push(Token::String(unescaped.into()));
+                spans.push(span);
+            }
+            LexerToken::WhiteSpace => {}
         }
     }
 

@@ -9,7 +9,9 @@ pub enum Value {
     List(Vec<Value>),
     Seq(Vec<Value>),
     Map(Vec<Value>),
-    Atom(SmolStr),
+    String(SmolStr),
+    Symbol(SmolStr),
+    Int(i64),
 }
 
 impl Parse for Value {
@@ -20,8 +22,12 @@ impl Parse for Value {
             parser.seq(|parser| Ok(Value::Seq(parser.parse()?)))
         } else if parser.cursor().peek_map(|_| true) {
             parser.map(|parser| Ok(Value::Map(parser.parse()?)))
+        } else if parser.cursor().peek_string(|_| true) {
+            Ok(Value::String(parser.string().cloned()?))
+        } else if parser.cursor().peek_int(|_| true) {
+            Ok(Value::Int(parser.int()?))
         } else {
-            Ok(Value::Atom(parser.parse()?))
+            Ok(Value::Symbol(parser.symbol().cloned()?))
         }
     }
 }
@@ -32,20 +38,10 @@ impl Print for Value {
             Value::List(items) => printer.list(|printer| printer.print(items)),
             Value::Seq(items) => printer.seq(|printer| printer.print(items)),
             Value::Map(items) => printer.map(|printer| printer.print(items)),
-            Value::Atom(atom) => printer.atom(atom),
+            Value::String(string) => printer.string(string),
+            Value::Symbol(symbol) => printer.symbol(symbol),
+            Value::Int(int) => printer.int(*int),
         }
-    }
-}
-
-impl From<SmolStr> for Value {
-    fn from(value: SmolStr) -> Self {
-        Self::Atom(value)
-    }
-}
-
-impl From<String> for Value {
-    fn from(value: String) -> Self {
-        Self::Atom(value.into())
     }
 }
 
@@ -56,7 +52,12 @@ impl Arbitrary for Value {
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         use proptest::prelude::*;
 
-        let leaf = any::<String>().prop_map(Value::from);
+        let leaf = prop_oneof![
+            any::<String>().prop_map(|s| Value::String(s.into())),
+            any::<String>().prop_map(|s| Value::Symbol(s.into())),
+            any::<i64>().prop_map(Value::Int),
+        ];
+
         leaf.prop_recursive(8, 256, 10, |inner| {
             proptest::prop_oneof![
                 proptest::collection::vec(inner.clone(), 0..10).prop_map(Value::List),
@@ -84,6 +85,7 @@ mod test {
         #[test]
         fn pretty_print_then_parse(values: Vec<Value>, width in 0..120usize) {
             let sexp = to_string_pretty(&values, width);
+            println!("`{}`", sexp);
             let parsed: Vec<Value> = from_str(&sexp).unwrap();
             assert_eq!(values, parsed);
         }

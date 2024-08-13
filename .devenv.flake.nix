@@ -1,14 +1,14 @@
 {
   inputs =
     let
-      version = "1.0.7";
+      version = "1.0.8";
 system = "aarch64-darwin";
-devenv_root = "/Users/heidemann/Documents/parenthesis";
+devenv_root = "/Users/lukas.heidemann/Code/parens";
 devenv_dotfile = ./.devenv;
 devenv_dotfile_string = ".devenv";
 container_name = null;
-devenv_tmpdir = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/";
-devenv_runtime = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/devenv-7173145";
+devenv_tmpdir = "/var/folders/2f/xc3j6vn95pqbp6t_m5w54dy40000gp/T/";
+devenv_runtime = "/var/folders/2f/xc3j6vn95pqbp6t_m5w54dy40000gp/T/devenv-d4d414e";
 devenv_istesting = false;
 
         in {
@@ -22,14 +22,14 @@ devenv_istesting = false;
 
       outputs = { nixpkgs, ... }@inputs:
         let
-          version = "1.0.7";
+          version = "1.0.8";
 system = "aarch64-darwin";
-devenv_root = "/Users/heidemann/Documents/parenthesis";
+devenv_root = "/Users/lukas.heidemann/Code/parens";
 devenv_dotfile = ./.devenv;
 devenv_dotfile_string = ".devenv";
 container_name = null;
-devenv_tmpdir = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/";
-devenv_runtime = "/var/folders/px/t78t4q897t1112gcsmgh1gcc0000gn/T/devenv-7173145";
+devenv_tmpdir = "/var/folders/2f/xc3j6vn95pqbp6t_m5w54dy40000gp/T/";
+devenv_runtime = "/var/folders/2f/xc3j6vn95pqbp6t_m5w54dy40000gp/T/devenv-d4d414e";
 devenv_istesting = false;
 
             devenv =

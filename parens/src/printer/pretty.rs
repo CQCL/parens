@@ -1,6 +1,6 @@
 use std::convert::Infallible;
 
-use crate::escape::escape_string;
+use crate::escape::{escape_string, escape_symbol};
 
 use super::{Print, Printer};
 use pretty::DocAllocator as _;
@@ -13,9 +13,22 @@ struct PrettyPrinter<'a> {
 impl<'a> Printer for PrettyPrinter<'a> {
     type Error = Infallible;
 
-    fn atom(&mut self, atom: &str) -> Result<(), Self::Error> {
-        let escaped = escape_string(&atom.to_string());
+    fn symbol(&mut self, symbol: &str) -> Result<(), Self::Error> {
+        let escaped = escape_symbol(&symbol.to_string());
         let doc = self.arena.text(escaped);
+        self.items.push(doc);
+        Ok(())
+    }
+
+    fn string(&mut self, string: &str) -> Result<(), Self::Error> {
+        let escaped = escape_string(string);
+        let doc = self.arena.text(escaped);
+        self.items.push(doc);
+        Ok(())
+    }
+
+    fn int(&mut self, int: i64) -> Result<(), Self::Error> {
+        let doc = self.arena.text(int.to_string());
         self.items.push(doc);
         Ok(())
     }

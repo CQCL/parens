@@ -9,8 +9,8 @@ macro_rules! make_keyword {
 
         impl $crate::parser::Parse for $name {
             fn parse(parser: &mut $crate::parser::Parser<'_>) -> $crate::parser::Result<Self> {
-                parser.step(|cursor| match cursor.atom() {
-                    Some((atom, rest)) if atom.as_str() == $atom => Ok((Self, rest)),
+                parser.step(|cursor| match cursor.symbol() {
+                    Some((symbol, rest)) if symbol.as_str() == $atom => Ok((Self, rest)),
                     _ => Err(cursor.error(format!("expected {}", $atom)))
                 })
             }
@@ -18,13 +18,13 @@ macro_rules! make_keyword {
 
         impl $crate::parser::Peek for $name {
             fn peek(cursor: $crate::parser::Cursor<'_>) -> bool {
-                cursor.peek_atom(|atom| atom.as_ref() == $atom)
+                cursor.peek_symbol(|atom| atom.as_ref() == $atom)
             }
         }
 
         impl $crate::printer::Print for $name {
             fn print<P: $crate::printer::Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
-                printer.print($atom)
+                printer.symbol($atom)
             }
         }
     }

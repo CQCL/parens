@@ -1,7 +1,8 @@
 //! Print values into s-expressions.
-use crate::escape::escape_string;
+use crate::escape::{escape_string, escape_symbol};
 use smol_str::SmolStr;
 use std::convert::Infallible;
+use std::fmt::Write as _;
 use std::rc::Rc;
 use std::sync::Arc;
 mod pretty;
@@ -11,8 +12,14 @@ pub use pretty::to_string_pretty;
 pub trait Printer: Sized {
     type Error;
 
-    /// Print an atom.
-    fn atom(&mut self, atom: &str) -> Result<(), Self::Error>;
+    /// Print a symbol.
+    fn symbol(&mut self, symbol: &str) -> Result<(), Self::Error>;
+
+    /// Print a string.
+    fn string(&mut self, string: &str) -> Result<(), Self::Error>;
+
+    /// Print an integer.
+    fn int(&mut self, int: i64) -> Result<(), Self::Error>;
 
     /// Print a list given a function that prints the contents.
     fn list<F>(&mut self, f: F) -> Result<(), Self::Error>
@@ -89,7 +96,7 @@ impl<T: Print> Print for Vec<T> {
 
 impl Print for str {
     fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
-        printer.atom(self)
+        printer.string(self)
     }
 }
 
@@ -109,11 +116,11 @@ macro_rules! impl_print_by_display {
 
 pub use impl_print_by_display;
 
-impl_print_by_display!(&str, SmolStr, String);
-impl_print_by_display!(u8, u16, u32, u64, u128);
-impl_print_by_display!(i8, i16, i32, i64, i128);
-impl_print_by_display!(f32, f64);
-impl_print_by_display!(bool);
+// impl_print_by_display!(&str, SmolStr, String);
+// impl_print_by_display!(u8, u16, u32, u64, u128);
+// impl_print_by_display!(i8, i16, i32, i64, i128);
+// impl_print_by_display!(f32, f64);
+// impl_print_by_display!(bool);
 
 struct SimplePrinter {
     needs_whitespace: bool,
@@ -150,14 +157,35 @@ impl SimplePrinter {
 impl Printer for SimplePrinter {
     type Error = Infallible;
 
-    fn atom(&mut self, atom: &str) -> Result<(), Self::Error> {
+    fn symbol(&mut self, atom: &str) -> Result<(), Self::Error> {
         if self.needs_whitespace {
             self.string.push(' ');
         }
 
         self.needs_whitespace = true;
         // TODO: Can we do without additional allocations here?
-        self.string.push_str(&escape_string(atom));
+        self.string.push_str(&escape_symbol(atom));
+        Ok(())
+    }
+
+    fn string(&mut self, string: &str) -> Result<(), Self::Error> {
+        if self.needs_whitespace {
+            self.string.push(' ');
+        }
+
+        self.needs_whitespace = true;
+        // TODO: Can we do without additional allocations here?
+        self.string.push_str(&escape_string(string));
+        Ok(())
+    }
+
+    fn int(&mut self, int: i64) -> Result<(), Self::Error> {
+        if self.needs_whitespace {
+            self.string.push(' ');
+        }
+
+        self.needs_whitespace = true;
+        let _ = write!(&mut self.string, "{}", int);
         Ok(())
     }
 

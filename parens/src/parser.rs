@@ -12,7 +12,9 @@ pub(crate) enum Token {
     List(usize),
     Seq(usize),
     Map(usize),
-    Atom(SmolStr),
+    Symbol(SmolStr),
+    String(SmolStr),
+    Int(i64),
 }
 
 /// A lexed representation of an s-expression string that can be parsed.
@@ -72,8 +74,24 @@ impl<'a> Parser<'a> {
         T::peek(self.cursor)
     }
 
-    pub fn atom(&mut self) -> Result<&'a SmolStr> {
-        self.step(|cursor| cursor.atom().ok_or_else(|| cursor.error("expected atom")))
+    pub fn symbol(&mut self) -> Result<&'a SmolStr> {
+        self.step(|cursor| {
+            cursor
+                .symbol()
+                .ok_or_else(|| cursor.error("expected symbol"))
+        })
+    }
+
+    pub fn int(&mut self) -> Result<i64> {
+        self.step(|cursor| cursor.int().ok_or_else(|| cursor.error("expected integer")))
+    }
+
+    pub fn string(&mut self) -> Result<&'a SmolStr> {
+        self.step(|cursor| {
+            cursor
+                .string()
+                .ok_or_else(|| cursor.error("expected string"))
+        })
     }
 
     pub fn list<T, F>(&mut self, f: F) -> Result<T>
@@ -184,34 +202,34 @@ impl<'a> Cursor<'a> {
         ParseError::new(message, self.span())
     }
 
-    pub fn advance(self) -> Option<Self> {
-        let size = match self.get()? {
-            Token::List(size) => size + 1,
-            Token::Seq(size) => size + 1,
-            Token::Map(size) => size + 1,
-            Token::Atom(_) => 1,
-        };
-        Some(Cursor {
+    fn advance(self, size: usize) -> Self {
+        Self {
             buffer: self.buffer,
             index: self.index + size,
             end_index: self.end_index,
             parent: self.parent,
-        })
+        }
     }
 
-    pub fn atom(self) -> Option<(&'a SmolStr, Self)> {
-        let Token::Atom(atom) = self.get()? else {
-            return None;
-        };
+    pub fn symbol(self) -> Option<(&'a SmolStr, Self)> {
+        match self.get()? {
+            Token::Symbol(atom) => Some((atom, self.advance(1))),
+            _ => None,
+        }
+    }
 
-        let after = Cursor {
-            buffer: self.buffer,
-            index: self.index + 1,
-            end_index: self.end_index,
-            parent: self.parent,
-        };
+    pub fn int(self) -> Option<(i64, Self)> {
+        match self.get()? {
+            Token::Int(int) => Some((*int, self.advance(1))),
+            _ => None,
+        }
+    }
 
-        Some((atom, after))
+    pub fn string(self) -> Option<(&'a SmolStr, Self)> {
+        match self.get()? {
+            Token::String(string) => Some((string, self.advance(1))),
+            _ => None,
+        }
     }
 
     pub fn list(self) -> Option<(Self, Self)> {
@@ -253,9 +271,23 @@ impl<'a> Cursor<'a> {
         (left, right)
     }
 
-    pub fn peek_atom(self, f: impl FnOnce(&SmolStr) -> bool) -> bool {
-        match self.atom() {
-            Some((atom, _)) => f(atom),
+    pub fn peek_symbol(self, f: impl FnOnce(&SmolStr) -> bool) -> bool {
+        match self.symbol() {
+            Some((symbol, _)) => f(symbol),
+            None => false,
+        }
+    }
+
+    pub fn peek_string(self, f: impl FnOnce(&SmolStr) -> bool) -> bool {
+        match self.string() {
+            Some((string, _)) => f(string),
+            None => false,
+        }
+    }
+
+    pub fn peek_int(self, f: impl FnOnce(i64) -> bool) -> bool {
+        match self.int() {
+            Some((int, _)) => f(int),
             None => false,
         }
     }
@@ -364,11 +396,11 @@ macro_rules! impl_parse_by_from_str {
 
 pub use impl_parse_by_from_str;
 
-impl_parse_by_from_str!(SmolStr, String);
-impl_parse_by_from_str!(u8, u16, u32, u64, u128);
-impl_parse_by_from_str!(i8, i16, i32, i64, i128);
-impl_parse_by_from_str!(f32, f64);
-impl_parse_by_from_str!(bool);
+// impl_parse_by_from_str!(SmolStr, String);
+// impl_parse_by_from_str!(u8, u16, u32, u64, u128);
+// impl_parse_by_from_str!(i8, i16, i32, i64, i128);
+// impl_parse_by_from_str!(f32, f64);
+// impl_parse_by_from_str!(bool);
 
 pub trait Peek: Sized {
     fn peek(cursor: Cursor<'_>) -> bool;
@@ -393,11 +425,11 @@ macro_rules! impl_peek_by_from_str {
 
 pub use impl_peek_by_from_str;
 
-impl_peek_by_from_str!(SmolStr, String);
-impl_peek_by_from_str!(u8, u16, u32, u64, u128);
-impl_peek_by_from_str!(i8, i16, i32, i64, i128);
-impl_peek_by_from_str!(f32, f64);
-impl_peek_by_from_str!(bool);
+// impl_peek_by_from_str!(SmolStr, String);
+// impl_peek_by_from_str!(u8, u16, u32, u64, u128);
+// impl_peek_by_from_str!(i8, i16, i32, i64, i128);
+// impl_peek_by_from_str!(f32, f64);
+// impl_peek_by_from_str!(bool);
 
 /// A parse error.
 #[derive(Debug, thiserror::Error)]

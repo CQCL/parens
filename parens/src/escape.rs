@@ -1,5 +1,7 @@
 use logos::Logos;
 
+use crate::lexer::LexerToken;
+
 /// Lexer token for an escaped string or symbol.
 #[derive(Debug, Clone, Logos)]
 enum EscapedToken {
@@ -45,12 +47,32 @@ pub fn unescape(str: &str) -> Option<String> {
     Some(output)
 }
 
-pub fn escape_string(str: &str) -> String {
-    // Check if the string needs to be escaped at all
-    if !str.is_empty() && !str.chars().any(|c| "\"\\\n\r\t()[]{}; ".contains(c)) {
+pub fn escape_symbol(str: &str) -> String {
+    // Check if the symbol needs to be escaped at all
+    let mut lexer = LexerToken::lexer(str);
+    if let [Some(Ok(LexerToken::BareSymbol)), None] = [lexer.next(), lexer.next()] {
         return str.to_string();
     }
 
+    let mut output = String::with_capacity(str.len() + 2);
+    output.push('|');
+
+    for c in str.chars() {
+        match c {
+            '\n' => output.push_str(r#"\n"#),
+            '\r' => output.push_str(r#"\r"#),
+            '\t' => output.push_str(r#"\t"#),
+            '|' => output.push_str(r#"\|"#),
+            '\\' => output.push_str(r#"\\"#),
+            c => output.push(c),
+        }
+    }
+
+    output.push('|');
+    output
+}
+
+pub fn escape_string(str: &str) -> String {
     let mut output = String::with_capacity(str.len() + 2);
     output.push('"');
 
@@ -71,20 +93,20 @@ pub fn escape_string(str: &str) -> String {
 
 #[cfg(test)]
 mod test {
-    use super::{escape_string, unescape};
+    use super::{escape_symbol, unescape};
     use rstest::rstest;
 
     #[rstest]
     #[case("string", "string")]
-    #[case("\n", r#""\n""#)]
-    #[case(r"\", r#""\\""#)]
-    #[case("", r#""""#)]
-    #[case("hello world", r#""hello world""#)]
-    #[case("hello ", r#""hello ""#)]
-    #[case(" world", r#"" world""#)]
-    #[case("[", r#""[""#)]
-    fn test_escape_string(#[case] string: &str, #[case] expected: &str) {
-        assert_eq!(expected, escape_string(string));
+    #[case("\n", r#"|\n|"#)]
+    #[case(r"\", r#"|\\|"#)]
+    #[case("", r#"||"#)]
+    #[case("hello world", r#"|hello world|"#)]
+    #[case("hello ", r#"|hello |"#)]
+    #[case(" world", r#"| world|"#)]
+    #[case("[", r#"|[|"#)]
+    fn test_escape_symbol(#[case] string: &str, #[case] expected: &str) {
+        assert_eq!(expected, escape_symbol(string));
     }
 
     #[rstest]
