@@ -14,8 +14,8 @@ pub enum Value {
     Int(i64),
 }
 
-impl Parse for Value {
-    fn parse(parser: &mut Parser<'_>) -> crate::parser::Result<Self> {
+impl<C> Parse<C> for Value {
+    fn parse(parser: &mut Parser<'_, C>) -> crate::parser::Result<Self> {
         if parser.cursor().peek_list(|_| true) {
             parser.list(|parser| Ok(Value::List(parser.parse()?)))
         } else if parser.cursor().peek_seq(|_| true) {

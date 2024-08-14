@@ -35,33 +35,4 @@ pub mod printer;
 pub mod util;
 
 pub use parser::from_str;
-pub use printer::{to_string, to_string_pretty};
-
-// /// Type of delimiters.
-// #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-// pub enum Delimiter {
-//     /// `(` and `)`.
-//     List,
-//     /// `[` and `]`.
-//     Seq,
-//     /// `{` and `}`.
-//     Map,
-// }
-
-// impl Delimiter {
-//     pub fn open(self) -> char {
-//         match self {
-//             Delimiter::List => '(',
-//             Delimiter::Seq => '[',
-//             Delimiter::Map => '{',
-//         }
-//     }
-
-//     pub fn close(self) -> char {
-//         match self {
-//             Delimiter::List => ')',
-//             Delimiter::Seq => ']',
-//             Delimiter::Map => '}',
-//         }
-//     }
-// }
+pub use printer::{to_string, to_string_pretty, to_string_pretty_with_ctx, to_string_with_ctx};

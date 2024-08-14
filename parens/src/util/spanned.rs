@@ -17,8 +17,8 @@ impl<T> Spanned<T> {
     }
 }
 
-impl<T: Parse> Parse for Spanned<T> {
-    fn parse(parser: &mut Parser<'_>) -> parser::Result<Self> {
+impl<T: Parse<C>, C> Parse<C> for Spanned<T> {
+    fn parse(parser: &mut Parser<'_, C>) -> parser::Result<Self> {
         let start = parser.span().start;
         let inner = parser.parse()?;
         // TOOD: Prev span instead?
@@ -30,8 +30,8 @@ impl<T: Parse> Parse for Spanned<T> {
     }
 }
 
-impl<T: Print> Print for Spanned<T> {
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+impl<T: Print<C>, C> Print<C> for Spanned<T> {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
         self.inner.print(printer)
     }
 }

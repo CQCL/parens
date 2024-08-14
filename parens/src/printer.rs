@@ -1,15 +1,14 @@
 //! Print values into s-expressions.
 use crate::escape::{escape_string, escape_symbol};
-use smol_str::SmolStr;
 use std::convert::Infallible;
 use std::fmt::Write as _;
 use std::rc::Rc;
 use std::sync::Arc;
 mod pretty;
-pub use pretty::to_string_pretty;
+pub use pretty::{to_string_pretty, to_string_pretty_with_ctx};
 
 /// Trait for types that can print s-expressions.
-pub trait Printer: Sized {
+pub trait Printer<C = ()>: Sized {
     type Error;
 
     /// Print a symbol.
@@ -46,47 +45,50 @@ pub trait Printer: Sized {
         F: FnOnce(&mut Self) -> Result<(), Self::Error>;
 
     /// Print a printable value.
-    fn print(&mut self, value: impl Print) -> Result<(), Self::Error> {
+    fn print(&mut self, value: impl Print<C>) -> Result<(), Self::Error> {
         value.print(self)
     }
+
+    fn context(&self) -> &C;
+    fn context_mut(&mut self) -> &mut C;
 }
 
 /// Trait for types that can be printed as an s-expression.
-pub trait Print {
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error>;
+pub trait Print<C = ()> {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error>;
 }
 
-impl<T: Print + Sized> Print for &T {
+impl<T: Print<C> + Sized, C> Print<C> for &T {
     #[inline]
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
         (*self).print(printer)
     }
 }
 
-impl<T: Print> Print for Box<T> {
+impl<T: Print<C>, C> Print<C> for Box<T> {
     #[inline]
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
         printer.print(self.as_ref())
     }
 }
 
-impl<T: Print> Print for Rc<T> {
+impl<T: Print<C>, C> Print<C> for Rc<T> {
     #[inline]
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
         printer.print(self.as_ref())
     }
 }
 
-impl<T: Print> Print for Arc<T> {
+impl<T: Print<C>, C> Print<C> for Arc<T> {
     #[inline]
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
         printer.print(self.as_ref())
     }
 }
 
-impl<T: Print> Print for Vec<T> {
+impl<T: Print<C>, C> Print<C> for Vec<T> {
     #[inline]
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
         for item in self {
             printer.print(item)?;
         }
@@ -94,8 +96,8 @@ impl<T: Print> Print for Vec<T> {
     }
 }
 
-impl Print for str {
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+impl<C> Print<C> for str {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
         printer.string(self)
     }
 }
@@ -122,16 +124,18 @@ pub use impl_print_by_display;
 // impl_print_by_display!(f32, f64);
 // impl_print_by_display!(bool);
 
-struct SimplePrinter {
+struct SimplePrinter<C> {
     needs_whitespace: bool,
     string: String,
+    context: C,
 }
 
-impl SimplePrinter {
-    pub fn new() -> Self {
+impl<C> SimplePrinter<C> {
+    pub fn new(context: C) -> Self {
         Self {
             needs_whitespace: false,
             string: String::new(),
+            context,
         }
     }
 
@@ -154,7 +158,7 @@ impl SimplePrinter {
     }
 }
 
-impl Printer for SimplePrinter {
+impl<C> Printer<C> for SimplePrinter<C> {
     type Error = Infallible;
 
     fn symbol(&mut self, atom: &str) -> Result<(), Self::Error> {
@@ -213,20 +217,34 @@ impl Printer for SimplePrinter {
         self.print_delimited('{', '}', f)
     }
 
+    #[inline]
     fn group<F>(&mut self, f: F) -> Result<(), Self::Error>
     where
         F: FnOnce(&mut Self) -> Result<(), Self::Error>,
     {
         f(self)
     }
+
+    #[inline]
+    fn context(&self) -> &C {
+        &self.context
+    }
+
+    #[inline]
+    fn context_mut(&mut self) -> &mut C {
+        &mut self.context
+    }
 }
 
 /// Print a `T` into an s-expression string.
-pub fn to_string<T>(value: T) -> String
-where
-    T: Print,
-{
-    let mut printer = SimplePrinter::new();
+#[inline]
+pub fn to_string<T: Print>(value: T) -> String {
+    to_string_with_ctx(value, ())
+}
+
+/// Print a `T` into an s-expression string with given a context.
+pub fn to_string_with_ctx<T: Print<C>, C>(value: T, ctx: C) -> String {
+    let mut printer = SimplePrinter::new(ctx);
     let _ = value.print(&mut printer);
     printer.string
 }

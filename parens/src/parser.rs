@@ -41,27 +41,28 @@ impl<'a> ParseBuffer<'a> {
     }
 
     #[inline]
-    pub fn parser(&'a self) -> Parser<'a> {
-        Parser::new(self.cursor())
+    pub fn parser<C>(&'a self, context: C) -> Parser<'a, C> {
+        Parser::new(self.cursor(), context)
     }
 }
 
 /// A parser that is stepping through a [`ParseBuffer`].
 #[derive(Clone)]
-pub struct Parser<'a> {
+pub struct Parser<'a, C> {
     cursor: Cursor<'a>,
+    context: C,
 }
 
-impl<'a> Parser<'a> {
+impl<'a, C> Parser<'a, C> {
     #[inline]
-    pub fn new(cursor: Cursor<'a>) -> Self {
-        Self { cursor }
+    pub fn new(cursor: Cursor<'a>, context: C) -> Self {
+        Self { cursor, context }
     }
 
     #[inline]
     pub fn parse<T>(&mut self) -> Result<T>
     where
-        T: Parse,
+        T: Parse<C>,
     {
         T::parse(self)
     }
@@ -98,51 +99,57 @@ impl<'a> Parser<'a> {
     where
         F: FnOnce(&mut Self) -> Result<T>,
     {
-        self.step(|cursor| {
-            let (inner, after) = cursor.list().ok_or_else(|| cursor.error("expected list"))?;
-            let mut inner = Parser::new(inner);
-            let result = f(&mut inner)?;
+        let (inner, after) = self
+            .cursor
+            .list()
+            .ok_or_else(|| self.error("expected list"))?;
+        self.cursor = inner;
+        let result = f(self)?;
 
-            if !inner.is_empty() {
-                return Err(inner.error("expected end of list"));
-            }
+        if !self.cursor.is_empty() {
+            return Err(inner.error("expected end of list"));
+        }
 
-            Ok((result, after))
-        })
+        self.cursor = after;
+        Ok(result)
     }
 
     pub fn seq<T, F>(&mut self, f: F) -> Result<T>
     where
         F: FnOnce(&mut Self) -> Result<T>,
     {
-        self.step(|cursor| {
-            let (inner, after) = cursor.seq().ok_or_else(|| cursor.error("expected seq"))?;
-            let mut inner = Parser::new(inner);
-            let result = f(&mut inner)?;
+        let (inner, after) = self
+            .cursor
+            .seq()
+            .ok_or_else(|| self.error("expected seq"))?;
+        self.cursor = inner;
+        let result = f(self)?;
 
-            if !inner.is_empty() {
-                return Err(inner.error("expected end of seq"));
-            }
+        if !self.cursor.is_empty() {
+            return Err(inner.error("expected end of seq"));
+        }
 
-            Ok((result, after))
-        })
+        self.cursor = after;
+        Ok(result)
     }
 
     pub fn map<T, F>(&mut self, f: F) -> Result<T>
     where
         F: FnOnce(&mut Self) -> Result<T>,
     {
-        self.step(|cursor| {
-            let (inner, after) = cursor.map().ok_or_else(|| cursor.error("expected map"))?;
-            let mut inner = Parser::new(inner);
-            let result = f(&mut inner)?;
+        let (inner, after) = self
+            .cursor
+            .map()
+            .ok_or_else(|| self.error("expected map"))?;
+        self.cursor = inner;
+        let result = f(self)?;
 
-            if !inner.is_empty() {
-                return Err(inner.error("expected end of map"));
-            }
+        if !self.cursor.is_empty() {
+            return Err(inner.error("expected end of map"));
+        }
 
-            Ok((result, after))
-        })
+        self.cursor = after;
+        Ok(result)
     }
 
     #[inline]
@@ -158,6 +165,16 @@ impl<'a> Parser<'a> {
     #[inline]
     pub fn cursor(&self) -> Cursor<'a> {
         self.cursor
+    }
+
+    #[inline]
+    pub fn context(&self) -> &C {
+        &self.context
+    }
+
+    #[inline]
+    pub fn context_mut(&mut self) -> &mut C {
+        &mut self.context
     }
 
     delegate! {
@@ -180,11 +197,11 @@ pub struct Cursor<'a> {
 }
 
 impl<'a> Cursor<'a> {
-    pub fn parse<T>(self) -> Result<(T, Self)>
+    pub fn parse<C, T>(self, context: C) -> Result<(T, Self)>
     where
-        T: Parse,
+        T: Parse<C>,
     {
-        let mut parser = Parser::new(self);
+        let mut parser = Parser::new(self, context);
         let result = parser.parse()?;
         let cursor = parser.cursor();
         Ok((result, cursor))
@@ -346,12 +363,12 @@ impl<'a> Cursor<'a> {
 }
 
 /// Trait for types that can be parsed from an s-expression.
-pub trait Parse: Sized {
-    fn parse(parser: &mut Parser<'_>) -> Result<Self>;
+pub trait Parse<C = ()>: Sized {
+    fn parse(parser: &mut Parser<'_, C>) -> Result<Self>;
 }
 
-impl<V: Parse> Parse for Vec<V> {
-    fn parse(parser: &mut Parser<'_>) -> Result<Self> {
+impl<V: Parse<C>, C> Parse<C> for Vec<V> {
+    fn parse(parser: &mut Parser<'_, C>) -> Result<Self> {
         let mut values = Vec::new();
         while !parser.is_empty() {
             values.push(parser.parse()?);
@@ -360,20 +377,20 @@ impl<V: Parse> Parse for Vec<V> {
     }
 }
 
-impl<V: Parse> Parse for Box<V> {
-    fn parse(parser: &mut Parser<'_>) -> Result<Self> {
+impl<V: Parse<C>, C> Parse<C> for Box<V> {
+    fn parse(parser: &mut Parser<'_, C>) -> Result<Self> {
         Ok(Box::new(parser.parse()?))
     }
 }
 
-impl<V: Parse> Parse for Rc<V> {
-    fn parse(parser: &mut Parser<'_>) -> Result<Self> {
+impl<V: Parse<C>, C> Parse<C> for Rc<V> {
+    fn parse(parser: &mut Parser<'_, C>) -> Result<Self> {
         Ok(Rc::new(parser.parse()?))
     }
 }
 
-impl<V: Parse> Parse for Arc<V> {
-    fn parse(parser: &mut Parser<'_>) -> Result<Self> {
+impl<V: Parse<C>, C> Parse<C> for Arc<V> {
+    fn parse(parser: &mut Parser<'_, C>) -> Result<Self> {
         Ok(Arc::new(parser.parse()?))
     }
 }
@@ -460,7 +477,12 @@ pub type Span = Range<usize>;
 
 /// Parse a `T` from an s-expression string.
 pub fn from_str<T: Parse>(source: &str) -> Result<T> {
+    from_str_with_ctx(source, ())
+}
+
+/// Parse a `T` from an s-expression string, in the given context.
+pub fn from_str_with_ctx<T: Parse<C>, C>(source: &str, context: C) -> Result<T> {
     let buffer = ParseBuffer::new(source)?;
-    let mut parser = buffer.parser();
+    let mut parser = buffer.parser(context);
     T::parse(&mut parser)
 }

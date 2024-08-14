@@ -5,12 +5,13 @@ use crate::escape::{escape_string, escape_symbol};
 use super::{Print, Printer};
 use pretty::DocAllocator as _;
 
-struct PrettyPrinter<'a> {
+struct PrettyPrinter<'a, C> {
     arena: &'a pretty::Arena<'a>,
     items: Vec<pretty::DocBuilder<'a, pretty::Arena<'a>>>,
+    context: C,
 }
 
-impl<'a> Printer for PrettyPrinter<'a> {
+impl<'a, C> Printer<C> for PrettyPrinter<'a, C> {
     type Error = Infallible;
 
     fn symbol(&mut self, symbol: &str) -> Result<(), Self::Error> {
@@ -117,17 +118,31 @@ impl<'a> Printer for PrettyPrinter<'a> {
         self.items.push(docs);
         Ok(())
     }
+
+    #[inline]
+    fn context(&self) -> &C {
+        &self.context
+    }
+
+    #[inline]
+    fn context_mut(&mut self) -> &mut C {
+        &mut self.context
+    }
 }
 
 /// Pretty print a `T` into an s-expression string.
-pub fn to_string_pretty<T>(value: T, width: usize) -> String
-where
-    T: Print,
-{
+#[inline]
+pub fn to_string_pretty<T: Print>(value: T, width: usize) -> String {
+    to_string_pretty_with_ctx(value, width, ())
+}
+
+/// Pretty print a `T` into an s-expression string with a given context.
+pub fn to_string_pretty_with_ctx<T: Print<C>, C>(value: T, width: usize, context: C) -> String {
     let arena = pretty::Arena::new();
     let mut printer = PrettyPrinter {
         items: vec![],
         arena: &arena,
+        context,
     };
 
     let _ = value.print(&mut printer);
