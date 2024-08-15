@@ -131,7 +131,21 @@ impl<'a, C> Printer<C> for PrettyPrinter<'a, C> {
     }
 }
 
-/// Pretty print a `T` into an s-expression string with a given context.
+/// Pretty print a `T` into an s-expression string.
+///
+/// This function is useful to produce human-readable output. If performance is a conern
+/// and the output is intended to be consumed by another program, consider using the
+/// [`to_string`] function instead.
+///
+/// The `width` parameter specifies the ideal maximum width of the output, which
+/// is used to make decisions on when to break lines. The actual output may exceed
+/// this width if it not possible to break lines to stay within the limit.
+///
+/// The `context` parameter is passed to the `Print` implementation and can be used to pass
+/// additional information that may be required to print values of type `T`. When no context
+/// is needed, the `()` value can be passed as the context.
+///
+/// [`to_string`]: `crate::printer::to_string`
 pub fn to_string_pretty<T: Print<C>, C>(value: T, width: usize, context: C) -> String {
     let arena = pretty::Arena::new();
     let mut printer = PrettyPrinter {

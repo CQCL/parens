@@ -117,7 +117,17 @@ impl<C> Printer<C> for SimplePrinter<C> {
     }
 }
 
-/// Print a `T` into an s-expression string with given a context.
+/// Print a `T` into an s-expression string.
+///
+/// This function does not produce any line breaks, indentation, or unnecessary whitespace.
+/// It is intended to be used when the output is intended to be consumed by another program.
+/// Where human readability is a concern, consider using the [`to_string_pretty`] function instead.
+///
+/// The `context` parameter is passed to the `Print` implementation and can be used to pass
+/// additional information that may be required to print values of type `T`. When no context
+/// is needed, the `()` value can be passed as the context.
+///
+/// [`to_string_pretty`]: `crate::printer::to_string_pretty`
 pub fn to_string<T: Print<C>, C>(value: T, ctx: C) -> String {
     let mut printer = SimplePrinter::new(ctx);
     let _ = value.print(&mut printer);

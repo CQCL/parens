@@ -1,10 +1,34 @@
+/// A macro for defining a keyword token.
+///
+/// This macro defines a new type that parses and prints as a fixed symbol.
+///
+/// # Examples
+///
+/// ```
+/// # use parens::util::make_keyword;
+/// # use parens::{from_str, to_string};
+/// make_keyword!(unit);
+/// assert_eq!(from_str::<unit, ()>("unit", ()).unwrap(), unit);
+/// assert_eq!(to_string(unit, ()), "unit");
+/// ```
+///
+/// We can define keywords whose symbol representation is different to the name
+/// of the generated type. This is particularly useful when the symbol is not
+/// a valid type name in Rust.
+/// ```
+/// # use parens::util::make_keyword;
+/// # use parens::{from_str, to_string};
+/// make_keyword!(r#fn => "fn");
+/// assert_eq!(from_str::<r#fn, ()>("fn", ()).unwrap(), r#fn);
+/// assert_eq!(to_string(r#fn, ()), "fn");
+/// ```
 #[macro_export]
 macro_rules! make_keyword {
     ($name:ident) => { make_keyword!($name => stringify!($name)); };
     ($name:ident => $atom:expr) => {
         #[allow(non_camel_case_types)]
         #[allow(dead_code)]
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, PartialEq, Eq)]
         pub struct $name;
 
         impl<C> $crate::parser::Parse<C> for $name {

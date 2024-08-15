@@ -1,10 +1,5 @@
 //! Print values into s-expressions.
 //!
-//! This module provides two printer implementations:
-//! The [`to_string_pretty`] function prints values into a pretty-printed s-expression string,
-//! provided a target width for the output. The [`to_string`] function produces s-expressions
-//! without any additional whitespace or line breaks, suitable for machine processing.
-//!
 //! Printers may be provided with a context that is passed down to all print functions.
 //! This allows to print values whose text representation may only be determined given
 //! additional context, for instance when using string interning.

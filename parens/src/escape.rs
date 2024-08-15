@@ -2,7 +2,7 @@ use logos::Logos;
 
 use crate::lexer::LexerToken;
 
-/// Lexer token for an escaped string or symbol.
+/// Lexer token for an escaped string or symbol, used by [`unescape`].
 #[derive(Debug, Clone, Logos)]
 enum EscapedToken {
     #[token(r#"\n"#, |_| '\n')]
@@ -47,10 +47,12 @@ pub fn unescape(str: &str) -> Option<String> {
     Some(output)
 }
 
+/// Escapes a symbol. If the symbol can be used verbatim, it is returned as is.
+/// Otherwise, it is escaped and surrounded by `|`s.
 pub fn escape_symbol(str: &str) -> String {
     // Check if the symbol needs to be escaped at all
     let mut lexer = LexerToken::lexer(str);
-    if let [Some(Ok(LexerToken::BareSymbol)), None] = [lexer.next(), lexer.next()] {
+    if let [Some(Ok(LexerToken::VerbatimSymbol)), None] = [lexer.next(), lexer.next()] {
         return str.to_string();
     }
 
@@ -72,6 +74,7 @@ pub fn escape_symbol(str: &str) -> String {
     output
 }
 
+/// Escapes a string. The string is always surrounded by `"`.
 pub fn escape_string(str: &str) -> String {
     let mut output = String::with_capacity(str.len() + 2);
     output.push('"');

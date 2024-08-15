@@ -4,13 +4,24 @@ use proptest::arbitrary::Arbitrary;
 use smol_str::SmolStr;
 
 /// An s-expression represented as a recursive enum.
+///
+/// This type is mainly provided for testing and debugging purposes.
+/// To parse or print a user-defined type from and into s-expressions,
+/// we do not recommend using this type. Instead, implement the [`Parse`] and [`Print`]
+/// traits for your type.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Value {
+    /// A list of values enclosed in parentheses `(` and `)`.
     List(Vec<Value>),
+    /// A sequence of values enclosed in square brackets `[` and `]`.
     Seq(Vec<Value>),
+    /// A map of values enclosed in curly braces `{` and `}`.
     Map(Vec<Value>),
+    /// A string value.
     String(SmolStr),
+    /// A symbol.
     Symbol(SmolStr),
+    /// An integer value.
     Int(i64),
 }
 
@@ -75,6 +86,7 @@ mod test {
     use proptest::prelude::*;
 
     proptest! {
+        /// Ensure that we can round-trip arbitrary values with simple printing.
         #[test]
         fn print_then_parse(values: Vec<Value>) {
             let sexp = to_string(&values, ());
@@ -82,10 +94,10 @@ mod test {
             assert_eq!(values, parsed);
         }
 
+        /// Ensure that we can round-trip arbitrary values with pretty printing.
         #[test]
         fn pretty_print_then_parse(values: Vec<Value>, width in 0..120usize) {
             let sexp = to_string_pretty(&values, width, ());
-            println!("`{}`", sexp);
             let parsed: Vec<Value> = from_str(&sexp, ()).unwrap();
             assert_eq!(values, parsed);
         }

@@ -1,8 +1,12 @@
 //! Parse values from s-expressions.
 //!
+//! An s-expression string is first turned into a tree of tokens in a [`ParseBuffer`],
+//! checking for balanced parentheses and quoting. This tree can then be parsed into
+//! a value of any type that implements the [`Parse`] trait by using a [`Parser`].
+//!
 //! Parsers can be given a context that is passed down to all parse functions.
-//! This can be used to implicitly thread state through the parsing process,
-//! such as a symbol table or a configuration object.
+//! This can be used to parse values whose text representation may only be determined given
+//! additional context, for instance when using string interning.
 use crate::lexer::lex;
 use delegate::delegate;
 use smol_str::SmolStr;
@@ -11,6 +15,11 @@ use std::ops::Range;
 use std::rc::Rc;
 use std::sync::Arc;
 
+/// The tokens that make up a [`ParseBuffer`].
+/// The tokens are a tree representation of an s-expression string,
+/// stored as a flat array for efficiency. The `List`, `Seq` and `Map` tokens
+/// carry the offset of the first token after the end of the list, which
+/// is used to naviate the tree.
 #[derive(Debug, Clone)]
 pub(crate) enum Token {
     List(usize),
@@ -21,7 +30,7 @@ pub(crate) enum Token {
     Int(i64),
 }
 
-/// A lexed representation of an s-expression string that can be parsed.
+/// An s-expression string that has been turned into a tree of tokens.
 #[derive(Debug, Clone)]
 pub struct ParseBuffer<'a> {
     pub(crate) source: &'a str,
@@ -30,10 +39,14 @@ pub struct ParseBuffer<'a> {
 }
 
 impl<'a> ParseBuffer<'a> {
+    /// Turns a string into a parse buffer.
+    /// Returns an error if the string is not a valid s-expression.
+    #[inline]
     pub fn new(str: &'a str) -> Result<Self> {
         lex(str).map_err(|err| ParseError::new(&err, err.span()))
     }
 
+    /// Creates a cursor that steps through the top level tokens of the buffer.
     #[inline]
     pub fn cursor(&'a self) -> Cursor<'a> {
         Cursor {
@@ -44,6 +57,7 @@ impl<'a> ParseBuffer<'a> {
         }
     }
 
+    /// Creates a parser that steps through the top level tokens of the buffer with a given context.
     #[inline]
     pub fn parser<C>(&'a self, context: C) -> Parser<'a, C> {
         Parser::new(self.cursor(), context)
@@ -446,6 +460,7 @@ impl<V: Parse<C>, C> Parse<C> for Arc<V> {
 }
 
 /// Trait for types whose presence can be detected by peeking at the next tokens.
+///
 /// Peeking is used to decide which type to parse without relying on backtracking.
 /// A successful peek does not guarantee that the type can be parsed successfully.
 pub trait Peek: Sized {

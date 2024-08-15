@@ -1,3 +1,4 @@
+//! The lexer that is used to turn an s-expression string into a token tree.
 use logos::Logos;
 
 use crate::{
@@ -19,19 +20,32 @@ pub(crate) enum LexerToken {
     CloseSeq,
     #[token("}")]
     CloseMap,
+    /// A symbol that is not quoted with `|`.
+    /// The regex appears scary, but it's just a negation of the characters that are not allowed
+    /// in a symbol together with rules that avoid confusion with numbers.
     #[regex(r#"[^ +\-0-9\t\n\f\(\)\[\]\{\}"\|\\;][^ \t\n\f\(\)\[\]\{\}"\|\\;]*"#)]
     #[regex(r#"[+\-][^ 0-9\t\n\f\(\)\[\]\{\}"\|\\;][^ \t\n\f\(\)\[\]\{\}"\|\\;]*"#)]
-    BareSymbol,
-    #[regex(r#"\|([^|\\]|\\[|\\tnr]|u\{[a-fA-F0-9]+\})*\|"#)]
+    #[token("+")]
+    #[token("-")]
+    VerbatimSymbol,
+    /// A symbol that is quoted with `|`.
+    #[regex(r#"\|([^|\\]|\\[|\\tnr]|\\u\{[a-fA-F0-9]+\})*\|"#)]
     EscapedSymbol,
-    #[regex(r#""([^"\\]|\\[\\tnr"]|u\{[a-fA-F0-9]+\})*""#)]
+    /// A string that is quoted with `"`.
+    #[regex(r#""([^"\\]|\\[\\tnr"]|\\u\{[a-fA-F0-9]+\})*""#)]
     String,
+    /// A 64-bit signed integer. It is a parse error if the integer is out of bounds.
     #[regex(r#"[+-]?([0-9]+)"#, |lex| lex.slice().parse().ok())]
     Int(i64),
+    /// Whitespace, including comments.
     #[regex(r"([ \t\n\f]+|;[^\n]*\n)")]
     WhiteSpace,
 }
 
+/// Errors that can occur during lexing.
+/// These errors are ultimately turned into a [`ParseError`] in the public API.
+///
+/// [`ParseError`]: `cate::parser::ParseError`
 #[derive(Debug, thiserror::Error)]
 pub enum LexError {
     #[error("unexpected end of file")]
@@ -52,10 +66,18 @@ impl LexError {
     }
 }
 
+/// Lexes the input string into a token tree.
 pub fn lex<'a>(str: &'a str) -> Result<ParseBuffer<'a>, LexError> {
     let mut lexer = LexerToken::lexer(str);
+
+    // The tokens that are lexed.
     let mut tokens = Vec::new();
+
+    // The spans of the tokens in the token list.
     let mut spans = Vec::new();
+
+    // A stack of open tokens and their positions in the token list.
+    // This is used to match open and close tokens.
     let mut open_stack: Vec<(usize, LexerToken)> = Vec::new();
 
     while let Some(token) = lexer.next() {
@@ -102,7 +124,7 @@ pub fn lex<'a>(str: &'a str) -> Result<ParseBuffer<'a>, LexError> {
                 tokens[pos] = Token::Map(tokens.len() - pos - 1);
                 spans[pos].end = span.end;
             }
-            LexerToken::BareSymbol => {
+            LexerToken::VerbatimSymbol => {
                 tokens.push(Token::Symbol(lexer.slice().into()));
                 spans.push(span);
             }
