@@ -32,8 +32,8 @@ impl<C> Parse<C> for Value {
     }
 }
 
-impl Print for Value {
-    fn print<P: Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+impl<C> Print<C> for Value {
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
         match self {
             Value::List(items) => printer.list(|printer| printer.print(items)),
             Value::Seq(items) => printer.seq(|printer| printer.print(items)),
@@ -77,16 +77,16 @@ mod test {
     proptest! {
         #[test]
         fn print_then_parse(values: Vec<Value>) {
-            let sexp = to_string(&values);
-            let parsed: Vec<Value> = from_str(&sexp).unwrap();
+            let sexp = to_string(&values, ());
+            let parsed: Vec<Value> = from_str(&sexp, ()).unwrap();
             assert_eq!(values, parsed);
         }
 
         #[test]
         fn pretty_print_then_parse(values: Vec<Value>, width in 0..120usize) {
-            let sexp = to_string_pretty(&values, width);
+            let sexp = to_string_pretty(&values, width, ());
             println!("`{}`", sexp);
-            let parsed: Vec<Value> = from_str(&sexp).unwrap();
+            let parsed: Vec<Value> = from_str(&sexp, ()).unwrap();
             assert_eq!(values, parsed);
         }
     }

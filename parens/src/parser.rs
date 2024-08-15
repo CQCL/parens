@@ -1,4 +1,8 @@
 //! Parse values from s-expressions.
+//!
+//! Parsers can be given a context that is passed down to all parse functions.
+//! This can be used to implicitly thread state through the parsing process,
+//! such as a symbol table or a configuration object.
 use crate::lexer::lex;
 use delegate::delegate;
 use smol_str::SmolStr;
@@ -47,6 +51,12 @@ impl<'a> ParseBuffer<'a> {
 }
 
 /// A parser that is stepping through a [`ParseBuffer`].
+///
+/// If a parse function fails, the parser will return an error. At that point, the parser
+/// is in an undefined state and should not be used further. In particular, the parser should
+/// not be used for backtracking.
+///
+/// The parser carries a context of type `C` that is passed down to all parse functions.
 #[derive(Clone)]
 pub struct Parser<'a, C> {
     cursor: Cursor<'a>,
@@ -54,27 +64,26 @@ pub struct Parser<'a, C> {
 }
 
 impl<'a, C> Parser<'a, C> {
+    /// Creates a new parser from a cursor and a context.
     #[inline]
     pub fn new(cursor: Cursor<'a>, context: C) -> Self {
         Self { cursor, context }
     }
 
+    /// Attempts to parse a value of type `T`.
     #[inline]
-    pub fn parse<T>(&mut self) -> Result<T>
-    where
-        T: Parse<C>,
-    {
+    pub fn parse<T: Parse<C>>(&mut self) -> Result<T> {
         T::parse(self)
     }
 
+    /// Peeks at the next tokens to determine if a value of type `T` should be parsed.
+    /// A successful peek does not guarantee that a subsequent parse will succeed.
     #[inline]
-    pub fn peek<T>(&self) -> bool
-    where
-        T: Peek,
-    {
+    pub fn peek<T: Peek>(&self) -> bool {
         T::peek(self.cursor)
     }
 
+    /// Parse a string.
     pub fn symbol(&mut self) -> Result<&'a SmolStr> {
         self.step(|cursor| {
             cursor
@@ -83,10 +92,12 @@ impl<'a, C> Parser<'a, C> {
         })
     }
 
+    /// Parse an integer.
     pub fn int(&mut self) -> Result<i64> {
         self.step(|cursor| cursor.int().ok_or_else(|| cursor.error("expected integer")))
     }
 
+    /// Parse a string.
     pub fn string(&mut self) -> Result<&'a SmolStr> {
         self.step(|cursor| {
             cursor
@@ -95,6 +106,10 @@ impl<'a, C> Parser<'a, C> {
         })
     }
 
+    /// Parse a list, using the provided function to parse the list contents.
+    ///
+    /// The function is expected to parse the list contents until the end.
+    /// If any unparsed tokens remain within the list, an error is returned.
     pub fn list<T, F>(&mut self, f: F) -> Result<T>
     where
         F: FnOnce(&mut Self) -> Result<T>,
@@ -114,6 +129,10 @@ impl<'a, C> Parser<'a, C> {
         Ok(result)
     }
 
+    /// Parse a sequence, using the provided function to parse the list contents.
+    ///
+    /// The function is expected to parse the sequence contents until the end.
+    /// If any unparsed tokens remain within the sequence, an error is returned.
     pub fn seq<T, F>(&mut self, f: F) -> Result<T>
     where
         F: FnOnce(&mut Self) -> Result<T>,
@@ -133,6 +152,10 @@ impl<'a, C> Parser<'a, C> {
         Ok(result)
     }
 
+    /// Parse a map, using the provided function to parse the list contents.
+    ///
+    /// The function is expected to parse the sequence contents until the end.
+    /// If any unparsed tokens remain within the map, an error is returned.
     pub fn map<T, F>(&mut self, f: F) -> Result<T>
     where
         F: FnOnce(&mut Self) -> Result<T>,
@@ -152,6 +175,7 @@ impl<'a, C> Parser<'a, C> {
         Ok(result)
     }
 
+    /// Parse a value using the provided function that explicitly returns the new cursor.
     #[inline]
     pub fn step<T, F>(&mut self, f: F) -> Result<T>
     where
@@ -162,16 +186,19 @@ impl<'a, C> Parser<'a, C> {
         Ok(result)
     }
 
+    /// The current cursor position.
     #[inline]
     pub fn cursor(&self) -> Cursor<'a> {
         self.cursor
     }
 
+    /// Reference to the parser's context.
     #[inline]
     pub fn context(&self) -> &C {
         &self.context
     }
 
+    /// Mutable reference to the parser's context.
     #[inline]
     pub fn context_mut(&mut self) -> &mut C {
         &mut self.context
@@ -179,9 +206,11 @@ impl<'a, C> Parser<'a, C> {
 
     delegate! {
         to self.cursor {
+            /// Returns whether there are no remaining tokens.
             pub fn is_empty(&self) -> bool;
             pub fn span(&self) -> Span;
             pub fn parent_span(&self) -> Span;
+            /// Creates a [`ParseError`] with the current span.
             pub fn error(&self, message: impl Display) -> ParseError;
         }
     }
@@ -197,6 +226,7 @@ pub struct Cursor<'a> {
 }
 
 impl<'a> Cursor<'a> {
+    /// Parse a value of type `T` from the cursor's position.
     pub fn parse<C, T>(self, context: C) -> Result<(T, Self)>
     where
         T: Parse<C>,
@@ -207,14 +237,13 @@ impl<'a> Cursor<'a> {
         Ok((result, cursor))
     }
 
+    /// Peeks at the next tokens to determine if a value of type `T` should be parsed.
     #[inline]
-    pub fn peek<T>(self) -> bool
-    where
-        T: Peek,
-    {
+    pub fn peek<T: Peek>(self) -> bool {
         T::peek(self)
     }
 
+    /// Creates a [`ParseError`] with the current span.
     pub fn error(self, message: impl Display) -> ParseError {
         ParseError::new(message, self.span())
     }
@@ -228,6 +257,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Returns the current token if it is a symbol, together with a cursor advanced beyond it.
     pub fn symbol(self) -> Option<(&'a SmolStr, Self)> {
         match self.get()? {
             Token::Symbol(atom) => Some((atom, self.advance(1))),
@@ -235,6 +265,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Returns the current token if it is an integer, together with a cursor advanced beyond it.
     pub fn int(self) -> Option<(i64, Self)> {
         match self.get()? {
             Token::Int(int) => Some((*int, self.advance(1))),
@@ -242,6 +273,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Returns the current token if it is a string, together with a cursor advanced beyond it.
     pub fn string(self) -> Option<(&'a SmolStr, Self)> {
         match self.get()? {
             Token::String(string) => Some((string, self.advance(1))),
@@ -249,6 +281,8 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// If the current token is a list, returns a cursor into the list's contents
+    /// and a cursor advanced beyond the list.
     pub fn list(self) -> Option<(Self, Self)> {
         match self.get()? {
             Token::List(size) => Some(self.split(1, *size)),
@@ -256,6 +290,8 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// If the current token is a sequence, returns a cursor into the sequence's contents
+    /// and a cursor advanced beyond the sequence.
     pub fn seq(self) -> Option<(Self, Self)> {
         match self.get()? {
             Token::Seq(size) => Some(self.split(1, *size)),
@@ -263,6 +299,8 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// If the current token is a map, returns a cursor into the map's contents
+    /// and a cursor advanced beyond the map.
     pub fn map(self) -> Option<(Self, Self)> {
         match self.get()? {
             Token::Map(size) => Some(self.split(1, *size)),
@@ -288,6 +326,7 @@ impl<'a> Cursor<'a> {
         (left, right)
     }
 
+    /// Checks whether the current token is a symbol that satisfies the provided predicate.
     pub fn peek_symbol(self, f: impl FnOnce(&SmolStr) -> bool) -> bool {
         match self.symbol() {
             Some((symbol, _)) => f(symbol),
@@ -295,6 +334,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Checks whether the current token is an integer that satisfies the provided predicate.
     pub fn peek_string(self, f: impl FnOnce(&SmolStr) -> bool) -> bool {
         match self.string() {
             Some((string, _)) => f(string),
@@ -302,6 +342,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Checks whether the current token is an integer that satisfies the provided predicate.
     pub fn peek_int(self, f: impl FnOnce(i64) -> bool) -> bool {
         match self.int() {
             Some((int, _)) => f(int),
@@ -309,6 +350,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Checks whether the current token is a list that satisfies the provided predicate.
     pub fn peek_list(self, f: impl FnOnce(Self) -> bool) -> bool {
         match self.list() {
             Some((inner, _)) => f(inner),
@@ -316,6 +358,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Checks whether the current token is a sequence that satisfies the provided predicate.
     pub fn peek_seq(self, f: impl FnOnce(Self) -> bool) -> bool {
         match self.seq() {
             Some((inner, _)) => f(inner),
@@ -323,6 +366,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Checks whether the current token is a map that satisfies the provided predicate.
     pub fn peek_map(self, f: impl FnOnce(Self) -> bool) -> bool {
         match self.map() {
             Some((inner, _)) => f(inner),
@@ -330,6 +374,7 @@ impl<'a> Cursor<'a> {
         }
     }
 
+    /// Returns whether there are no remaining tokens.
     pub fn is_empty(&self) -> bool {
         self.index >= self.end_index
     }
@@ -363,7 +408,12 @@ impl<'a> Cursor<'a> {
 }
 
 /// Trait for types that can be parsed from an s-expression.
-pub trait Parse<C = ()>: Sized {
+///
+/// The type parameter `C` is the type of the context that is passed to the parser.
+/// Some types may only be parsed in a specific context. If the type does not require
+/// any context, we encourage the trait implementation to be polymorphic over `C`
+/// to allow mixing types that require context with those that do not.
+pub trait Parse<C>: Sized {
     fn parse(parser: &mut Parser<'_, C>) -> Result<Self>;
 }
 
@@ -395,58 +445,12 @@ impl<V: Parse<C>, C> Parse<C> for Arc<V> {
     }
 }
 
-/// Implement [`Parse`] by using [`FromStr`] to convert an atom into a value.
-///
-/// [`FromStr`]: [`std::str::FromStr`]
-#[macro_export]
-macro_rules! impl_parse_by_from_str {
-    ($($ident:ty),*) => {
-        $(impl $crate::parser::Parse for $ident {
-            fn parse(parser: &mut Parser<'_>) -> $crate::parser::Result<Self> {
-                let atom = parser.atom()?;
-                <$ident as ::std::str::FromStr>::from_str(atom.as_ref())
-                    .map_err(|err| parser.error(err))
-            }
-        })*
-    };
-}
-
-pub use impl_parse_by_from_str;
-
-// impl_parse_by_from_str!(SmolStr, String);
-// impl_parse_by_from_str!(u8, u16, u32, u64, u128);
-// impl_parse_by_from_str!(i8, i16, i32, i64, i128);
-// impl_parse_by_from_str!(f32, f64);
-// impl_parse_by_from_str!(bool);
-
+/// Trait for types whose presence can be detected by peeking at the next tokens.
+/// Peeking is used to decide which type to parse without relying on backtracking.
+/// A successful peek does not guarantee that the type can be parsed successfully.
 pub trait Peek: Sized {
     fn peek(cursor: Cursor<'_>) -> bool;
 }
-
-/// Implement [`Peek`] by using [`FromStr`] to convert an atom into a value.
-///
-/// [`FromStr`]: [`std::str::FromStr`]
-#[macro_export]
-macro_rules! impl_peek_by_from_str {
-    ($($ident:ty),*) => {
-        $(impl $crate::parser::Peek for $ident {
-            fn peek(cursor: Cursor<'_>) -> bool {
-                match cursor.atom() {
-                    Some((atom, _)) => <$ident as ::std::str::FromStr>::from_str(atom.as_ref()).is_ok(),
-                    None => false,
-                }
-            }
-        })*
-    };
-}
-
-pub use impl_peek_by_from_str;
-
-// impl_peek_by_from_str!(SmolStr, String);
-// impl_peek_by_from_str!(u8, u16, u32, u64, u128);
-// impl_peek_by_from_str!(i8, i16, i32, i64, i128);
-// impl_peek_by_from_str!(f32, f64);
-// impl_peek_by_from_str!(bool);
 
 /// A parse error.
 #[derive(Debug, thiserror::Error)]
@@ -475,13 +479,8 @@ pub type Result<T, E = ParseError> = std::result::Result<T, E>;
 /// Span within a string.
 pub type Span = Range<usize>;
 
-/// Parse a `T` from an s-expression string.
-pub fn from_str<T: Parse>(source: &str) -> Result<T> {
-    from_str_with_ctx(source, ())
-}
-
 /// Parse a `T` from an s-expression string, in the given context.
-pub fn from_str_with_ctx<T: Parse<C>, C>(source: &str, context: C) -> Result<T> {
+pub fn from_str<T: Parse<C>, C>(source: &str, context: C) -> Result<T> {
     let buffer = ParseBuffer::new(source)?;
     let mut parser = buffer.parser(context);
     T::parse(&mut parser)

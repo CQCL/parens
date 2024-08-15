@@ -7,8 +7,8 @@ macro_rules! make_keyword {
         #[derive(Debug, Clone)]
         pub struct $name;
 
-        impl $crate::parser::Parse for $name {
-            fn parse(parser: &mut $crate::parser::Parser<'_>) -> $crate::parser::Result<Self> {
+        impl<C> $crate::parser::Parse<C> for $name {
+            fn parse(parser: &mut $crate::parser::Parser<'_, C>) -> $crate::parser::Result<Self> {
                 parser.step(|cursor| match cursor.symbol() {
                     Some((symbol, rest)) if symbol.as_str() == $atom => Ok((Self, rest)),
                     _ => Err(cursor.error(format!("expected {}", $atom)))
@@ -22,8 +22,8 @@ macro_rules! make_keyword {
             }
         }
 
-        impl $crate::printer::Print for $name {
-            fn print<P: $crate::printer::Printer>(&self, printer: &mut P) -> Result<(), P::Error> {
+        impl<C> $crate::printer::Print<C> for $name {
+            fn print<P: $crate::printer::Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
                 printer.symbol($atom)
             }
         }

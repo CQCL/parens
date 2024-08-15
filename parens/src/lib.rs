@@ -2,9 +2,7 @@
 //!
 //! # Syntax
 //!
-//! This crate implements a minimalist version of s-expressions,
-//! as inspired by OCaml's [sexplib].
-//! The syntax of the s-expressions is as follows:
+//! This crate implements s-expressions with the following syntax:
 //!
 //! - **Lists** are sequences of values, delimited on the outside by `(` and `)`
 //!   and separated by whitespace.
@@ -15,14 +13,23 @@
 //! - **Maps** are sequences of values, delimited on the outside by `{` and `}`
 //!   and separated by whitespace.
 //!
-//! - **Atoms** are strings, either appearing verbatim without delimiters or
-//!   enclosed within double quotes. The double quotes are optional whenever
-//!   the string does not include any of the characters `(`, `)`, `[`, `]`, `{`, `}`, `"`, `\n`,
-//!   `\r`, `\t` or the space ` `. Within quoted strings, the following escaping rules apply:
+//! - **Symbols** represent identifiers. Symbols can occur verbatim without delimiters
+//!   or enclosed between `|` characters. The `|` characters are optional whenever the
+//!   symbol satisfies the following rules:
+//!     - It does not include any of the characters `(`, `)`, `[`, `]`, `{`, `}`, `|`,
+//!       `\n`, `\r`, `\t`, `\` or the space ` `.
+//!     - It does not start with a digit (`0` through `9`).
+//!     - If it starts with a `+` or `-` and has more than one character, the second character is not a digit.!
 //!
+//!   Within quoted symbols, the following escaping rules apply:
 //!    - `\"` and `\\` are used to escape `"` and `\`.
 //!    - `\n`, `\r` and `\t` stand for the newline, carriage return and tab characters.
 //!    - `\u{HEX}` stands in for any unicode character where `HEX` is a UTF-8 codepoint in hexadecimal notation.
+//!
+//! - **Strings** are sequences of characters enclosed within double quotes `"`.
+//!   Within strings, the same escaping rules as for symbols apply.
+//!
+//! - **Integers** are signed 64-bit integers, encoded in decimal notation with an optional sign.
 //!
 //! - **Comments** begin with a `;` and extend to the end of the line.
 //!
@@ -35,4 +42,4 @@ pub mod printer;
 pub mod util;
 
 pub use parser::from_str;
-pub use printer::{to_string, to_string_pretty, to_string_pretty_with_ctx, to_string_with_ctx};
+pub use printer::{to_string, to_string_pretty};

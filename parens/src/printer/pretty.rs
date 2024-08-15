@@ -5,6 +5,7 @@ use crate::escape::{escape_string, escape_symbol};
 use super::{Print, Printer};
 use pretty::DocAllocator as _;
 
+/// A pretty printer that uses the `pretty` crate to format the output.
 struct PrettyPrinter<'a, C> {
     arena: &'a pretty::Arena<'a>,
     items: Vec<pretty::DocBuilder<'a, pretty::Arena<'a>>>,
@@ -130,14 +131,8 @@ impl<'a, C> Printer<C> for PrettyPrinter<'a, C> {
     }
 }
 
-/// Pretty print a `T` into an s-expression string.
-#[inline]
-pub fn to_string_pretty<T: Print>(value: T, width: usize) -> String {
-    to_string_pretty_with_ctx(value, width, ())
-}
-
 /// Pretty print a `T` into an s-expression string with a given context.
-pub fn to_string_pretty_with_ctx<T: Print<C>, C>(value: T, width: usize, context: C) -> String {
+pub fn to_string_pretty<T: Print<C>, C>(value: T, width: usize, context: C) -> String {
     let arena = pretty::Arena::new();
     let mut printer = PrettyPrinter {
         items: vec![],
