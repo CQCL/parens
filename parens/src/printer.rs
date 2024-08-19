@@ -108,3 +108,21 @@ impl<T: Print<C>, C> Print<C> for Vec<T> {
         Ok(())
     }
 }
+
+#[cfg(feature = "tinyvec")]
+use tinyvec::{Array, TinyVec};
+
+#[cfg(feature = "tinyvec")]
+impl<V, C, const N: usize> Print<C> for TinyVec<[V; N]>
+where
+    [V; N]: Array<Item = V>,
+    V: Print<C>,
+{
+    #[inline]
+    fn print<P: Printer<C>>(&self, printer: &mut P) -> Result<(), P::Error> {
+        for item in self {
+            printer.print(item)?;
+        }
+        Ok(())
+    }
+}

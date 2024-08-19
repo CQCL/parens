@@ -19,7 +19,7 @@
 //!     - It does not include any of the characters `(`, `)`, `[`, `]`, `{`, `}`, `|`,
 //!       `\n`, `\r`, `\t`, `\` or the space ` `.
 //!     - It does not start with a digit (`0` through `9`).
-//!     - If it starts with a `+` or `-` and has more than one character, the second character is not a digit.!
+//!     - If it starts with a `+` or `-` and has more than one character, the second character is not a digit.
 //!
 //!   Within quoted symbols, the following escaping rules apply:
 //!    - `\"` and `\\` are used to escape `"` and `\`.

@@ -441,6 +441,24 @@ impl<V: Parse<C>, C> Parse<C> for Vec<V> {
     }
 }
 
+#[cfg(feature = "tinyvec")]
+use tinyvec::{Array, TinyVec};
+
+#[cfg(feature = "tinyvec")]
+impl<V, C, const N: usize> Parse<C> for TinyVec<[V; N]>
+where
+    [V; N]: Array<Item = V>,
+    V: Parse<C>,
+{
+    fn parse(parser: &mut Parser<'_, C>) -> Result<Self> {
+        let mut values = Self::new();
+        while !parser.is_empty() {
+            values.push(parser.parse()?);
+        }
+        Ok(values)
+    }
+}
+
 impl<V: Parse<C>, C> Parse<C> for Box<V> {
     fn parse(parser: &mut Parser<'_, C>) -> Result<Self> {
         Ok(Box::new(parser.parse()?))
